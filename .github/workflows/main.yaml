@@ -9,24 +9,25 @@ on:
     branches: [ master ]
 
 jobs:
+  Detect-Courses:
+    runs-on: ubuntu-latest
+    outputs:
+      courses: ${{ steps.set-courses.outputs.courses }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - id: set-courses
+        run: echo "::set-output name=courses::$(python3 contrib/ci/course.py find courses/ --json)"
+
   Slides:
     runs-on: ubuntu-latest
     container: public.ecr.aws/w0s6m4g9/pandoc-beamer:latest
+    needs: Detect-Courses
 
     strategy:
         fail-fast: false
         matrix:
-            source: [fundamentals_of_ada,
-                     fundamentals_of_ada/standard_course.txt,
-                     fundamentals_of_ada/advanced.txt,
-                     fundamentals_of_ada/opat.txt,
-                     fundamentals_of_ada/labs,
-                     spark_for_ada_programmers,
-                     spark_for_ada_programmers/course.txt,
-                     gnatcheck,
-                     gnat_studio,
-                     codepeer,
-                     static_analysis_via_compiler]
+            source: ${{ fromJson(needs.Detect-Course.outputs.courses) }}
 
     steps:
       - uses: actions/checkout@v2
