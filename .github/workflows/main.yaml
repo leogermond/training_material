@@ -1,5 +1,11 @@
 name: CI
 
+inputs:
+  alireToolchain:
+    description: 'Toolchain used by ALire'
+    required: false
+    default: 'gnat_native=12.2.1 gprbuild=22.0.1'
+
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
 on:
@@ -41,7 +47,6 @@ jobs:
 
       - name: Prepare slides environment
         run: python3 contrib/ci/slides.py ${{ format('{0}/{1}', 'courses', matrix.source) }} printenv >> $GITHUB_ENV
-
 
       - name: ${{ env.PRETTY_NAME }} - Build
         run: python3 pandoc/pandoc_fe.py --output-dir ${{ env.OUTPUT_DIR }} --hush --extension pdf --source ${{ env.SOURCES }}
@@ -117,21 +122,23 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
-      - uses: actions/cache@v3
-        with:
-          path: ./cached_gnat
-          key: ${{ runner.os }}-gnat-ce-2020
-
-      - name: Get GNAT Community 2020 toolchain
-        uses: ada-actions/toolchain@ce2020
-        with:
-          distrib: community
-          install_dir: ./cached_gnat
 
       - name: Update base system
         run: |
           sudo apt-get update
           sudo apt-get install libsdl2-dev libglu1-mesa-dev freeglut3-dev libsdl2-ttf-dev
+
+      - name: Get GNAT FSF Toolchain
+        run: |
+            cd /tmp
+            mkdir alr
+            cd alr
+            wget https://github.com/alire-project/alire/releases/download/v1.2.1/alr-1.2.1-x86_64.AppImage
+            ln -s alr*.AppImage /usr/bin/alr
+            alr toolchain --install ${{ inputs.alireToolchain }}
+            for f in /home/germond/.config/alire/cache/dependencies/gnat_native_*/bin/*; do
+                ln -s $f /usr/bin/$(basename $f)
+            done
 
       - name: Solution build for Ada Fundamentals
         env:
@@ -163,16 +170,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
-      - uses: actions/cache@v3
-        with:
-          path: ./cached_gnat
-          key: ${{ runner.os }}-gnat-ce-2020
-
-      - name: Get GNAT Community 2020 toolchain
-        uses: ada-actions/toolchain@ce2020
-        with:
-          distrib: community
-          install_dir: ./cached_gnat
 
       - name: Setup Python
         run: python3 -m pip install pytest git+https://gitlab.com/leogermond/epycs.git
